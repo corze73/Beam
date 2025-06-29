@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Peer, FileTransfer, FileChunk } from '../types';
 
 const CHUNK_SIZE = 16384; // 16KB chunks
-const SIGNALING_SERVER = 'wss://beam-03dc.onrender.com';
+const SIGNALING_SERVER = 'wss://beam-03dc.onrender.com:10000';
 
 export const useWebRTC = () => {
   const [peers, setPeers] = useState<Map<string, Peer>>(new Map());
