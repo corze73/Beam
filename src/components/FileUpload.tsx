@@ -75,7 +75,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFilesSelected, disable
           multiple
           onChange={handleChange}
           disabled={disabled}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+          className={`absolute inset-0 w-full h-full opacity-0 ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
         />
         
         <div className="flex flex-col items-center space-y-4">
