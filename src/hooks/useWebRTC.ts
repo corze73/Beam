@@ -100,6 +100,15 @@ export const useWebRTC = () => {
 
     dataChannel.onopen = () => {
       console.log('Data channel opened with', peerId);
+      setPeers(prev => {
+        const newPeers = new Map(prev);
+        const peer = newPeers.get(peerId);
+        if (peer) {
+          peer.dataChannel = dataChannel;
+          newPeers.set(peerId, peer);
+        }
+        return newPeers;
+      });
     };
 
     dataChannel.onmessage = (event) => {
@@ -108,6 +117,18 @@ export const useWebRTC = () => {
 
     pc.ondatachannel = (event) => {
       const channel = event.channel;
+      channel.onopen = () => {
+        console.log('Incoming data channel opened with', peerId);
+        setPeers(prev => {
+          const newPeers = new Map(prev);
+          const peer = newPeers.get(peerId);
+          if (peer) {
+            peer.dataChannel = channel;
+            newPeers.set(peerId, peer);
+          }
+          return newPeers;
+        });
+      };
       channel.onmessage = (event) => {
         handleDataChannelMessage(event.data, peerId);
       };
@@ -127,15 +148,7 @@ export const useWebRTC = () => {
     pc.onconnectionstatechange = () => {
       console.log('Connection state with', peerId, ':', pc.connectionState);
       if (pc.connectionState === 'connected') {
-        setPeers(prev => {
-          const newPeers = new Map(prev);
-          const peer = newPeers.get(peerId);
-          if (peer) {
-            peer.dataChannel = dataChannel;
-            newPeers.set(peerId, peer);
-          }
-          return newPeers;
-        });
+        console.log('Peer connected:', peerId);
       } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
         handlePeerLeft(peerId);
       }
