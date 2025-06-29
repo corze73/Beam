@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Peer, FileTransfer, FileChunk } from '../types';
 
 const CHUNK_SIZE = 16384; // 16KB chunks
@@ -10,6 +10,13 @@ export const useWebRTC = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [roomId, setRoomId] = useState<string>('');
   const [ws, setWs] = useState<WebSocket | null>(null);
+  const [clientId, setClientId] = useState<string>('');
+  const peersRef = useRef<Map<string, Peer>>(new Map());
+
+  // Keep refs in sync
+  useEffect(() => {
+    peersRef.current = peers;
+  }, [peers]);
 
   const generateRoomId = useCallback(() => {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -23,14 +30,29 @@ export const useWebRTC = () => {
       const websocket = new WebSocket(SIGNALING_SERVER);
       
       websocket.onopen = () => {
+        console.log('Connected to signaling server');
         setIsConnected(true);
         websocket.send(JSON.stringify({ type: 'join', roomId: id }));
       };
 
       websocket.onmessage = async (event) => {
         const message = JSON.parse(event.data);
+        console.log('Received message:', message);
         
         switch (message.type) {
+          case 'joined':
+            setClientId(message.clientId);
+            break;
+          case 'existing-peers':
+            // Create offers for existing peers
+            for (const peerId of message.peers) {
+              await createOffer(peerId);
+            }
+            break;
+          case 'peer-joined':
+            // New peer joined, they will send us an offer
+            console.log('Peer joined:', message.peerId);
+            break;
           case 'offer':
             await handleOffer(message.offer, message.from);
             break;
@@ -40,11 +62,21 @@ export const useWebRTC = () => {
           case 'ice-candidate':
             await handleIceCandidate(message.candidate, message.from);
             break;
+          case 'peer-left':
+            handlePeerLeft(message.peerId);
+            break;
         }
       };
 
-      websocket.onerror = () => setIsConnected(false);
-      websocket.onclose = () => setIsConnected(false);
+      websocket.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setIsConnected(false);
+      };
+      
+      websocket.onclose = () => {
+        console.log('WebSocket closed');
+        setIsConnected(false);
+      };
 
       setWs(websocket);
     } catch (error) {
@@ -61,6 +93,26 @@ export const useWebRTC = () => {
       ]
     });
 
+    // Create data channel for file transfer
+    const dataChannel = pc.createDataChannel('fileTransfer', {
+      ordered: true
+    });
+
+    dataChannel.onopen = () => {
+      console.log('Data channel opened with', peerId);
+    };
+
+    dataChannel.onmessage = (event) => {
+      handleDataChannelMessage(event.data, peerId);
+    };
+
+    pc.ondatachannel = (event) => {
+      const channel = event.channel;
+      channel.onmessage = (event) => {
+        handleDataChannelMessage(event.data, peerId);
+      };
+    };
+
     pc.onicecandidate = (event) => {
       if (event.candidate && ws) {
         ws.send(JSON.stringify({
@@ -72,46 +124,123 @@ export const useWebRTC = () => {
       }
     };
 
-    const peer: Peer = { id: peerId, connection: pc };
+    pc.onconnectionstatechange = () => {
+      console.log('Connection state with', peerId, ':', pc.connectionState);
+      if (pc.connectionState === 'connected') {
+        setPeers(prev => {
+          const newPeers = new Map(prev);
+          const peer = newPeers.get(peerId);
+          if (peer) {
+            peer.dataChannel = dataChannel;
+            newPeers.set(peerId, peer);
+          }
+          return newPeers;
+        });
+      } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+        handlePeerLeft(peerId);
+      }
+    };
+
+    const peer: Peer = { id: peerId, connection: pc, dataChannel };
     setPeers(prev => new Map(prev).set(peerId, peer));
     
     return peer;
   }, [ws, roomId]);
 
+  const createOffer = useCallback(async (peerId: string) => {
+    const peer = createPeerConnection(peerId);
+    
+    try {
+      const offer = await peer.connection.createOffer();
+      await peer.connection.setLocalDescription(offer);
+
+      if (ws) {
+        ws.send(JSON.stringify({
+          type: 'offer',
+          offer,
+          to: peerId,
+          roomId
+        }));
+      }
+    } catch (error) {
+      console.error('Error creating offer:', error);
+    }
+  }, [createPeerConnection, ws, roomId]);
+
   const handleOffer = useCallback(async (offer: RTCSessionDescriptionInit, from: string) => {
     const peer = createPeerConnection(from);
     
-    await peer.connection.setRemoteDescription(offer);
-    const answer = await peer.connection.createAnswer();
-    await peer.connection.setLocalDescription(answer);
+    try {
+      await peer.connection.setRemoteDescription(offer);
+      const answer = await peer.connection.createAnswer();
+      await peer.connection.setLocalDescription(answer);
 
-    if (ws) {
-      ws.send(JSON.stringify({
-        type: 'answer',
-        answer,
-        to: from,
-        roomId
-      }));
+      if (ws) {
+        ws.send(JSON.stringify({
+          type: 'answer',
+          answer,
+          to: from,
+          roomId
+        }));
+      }
+    } catch (error) {
+      console.error('Error handling offer:', error);
     }
   }, [createPeerConnection, ws, roomId]);
 
   const handleAnswer = useCallback(async (answer: RTCSessionDescriptionInit, from: string) => {
-    const peer = peers.get(from);
+    const peer = peersRef.current.get(from);
     if (peer) {
-      await peer.connection.setRemoteDescription(answer);
+      try {
+        await peer.connection.setRemoteDescription(answer);
+      } catch (error) {
+        console.error('Error handling answer:', error);
+      }
     }
-  }, [peers]);
+  }, []);
 
   const handleIceCandidate = useCallback(async (candidate: RTCIceCandidate, from: string) => {
-    const peer = peers.get(from);
+    const peer = peersRef.current.get(from);
     if (peer) {
-      await peer.connection.addIceCandidate(candidate);
+      try {
+        await peer.connection.addIceCandidate(candidate);
+      } catch (error) {
+        console.error('Error handling ICE candidate:', error);
+      }
     }
-  }, [peers]);
+  }, []);
+
+  const handlePeerLeft = useCallback((peerId: string) => {
+    setPeers(prev => {
+      const newPeers = new Map(prev);
+      const peer = newPeers.get(peerId);
+      if (peer) {
+        peer.connection.close();
+        newPeers.delete(peerId);
+      }
+      return newPeers;
+    });
+  }, []);
+
+  const handleDataChannelMessage = useCallback((data: string, from: string) => {
+    try {
+      const message = JSON.parse(data);
+      if (message.type === 'file-chunk') {
+        // Handle incoming file chunk
+        console.log('Received file chunk from', from);
+        // TODO: Implement file reception logic
+      }
+    } catch (error) {
+      console.error('Error parsing data channel message:', error);
+    }
+  }, []);
 
   const sendFile = useCallback(async (file: File, peerId: string) => {
-    const peer = peers.get(peerId);
-    if (!peer || !peer.dataChannel) return;
+    const peer = peersRef.current.get(peerId);
+    if (!peer || !peer.dataChannel || peer.dataChannel.readyState !== 'open') {
+      console.error('Data channel not ready for peer:', peerId);
+      return;
+    }
 
     const transfer: FileTransfer = {
       id: `${Date.now()}-${file.name}`,
@@ -125,43 +254,60 @@ export const useWebRTC = () => {
 
     setTransfers(prev => [...prev, transfer]);
 
-    const chunks = Math.ceil(file.size / CHUNK_SIZE);
-    let sentChunks = 0;
-    const startTime = Date.now();
+    try {
+      const chunks = Math.ceil(file.size / CHUNK_SIZE);
+      let sentChunks = 0;
+      const startTime = Date.now();
 
-    for (let i = 0; i < chunks; i++) {
-      const start = i * CHUNK_SIZE;
-      const end = Math.min(start + CHUNK_SIZE, file.size);
-      const chunk = file.slice(start, end);
-      const arrayBuffer = await chunk.arrayBuffer();
+      // Update status to transferring
+      setTransfers(prev => prev.map(t => 
+        t.id === transfer.id ? { ...t, status: 'transferring' } : t
+      ));
 
-      const fileChunk: FileChunk = {
-        id: transfer.id,
-        index: i,
-        data: arrayBuffer,
-        isLast: i === chunks - 1
-      };
+      for (let i = 0; i < chunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const chunk = file.slice(start, end);
+        const arrayBuffer = await chunk.arrayBuffer();
 
-      peer.dataChannel.send(JSON.stringify({
-        type: 'file-chunk',
-        chunk: fileChunk,
-        metadata: i === 0 ? { name: file.name, size: file.size, type: file.type } : undefined
-      }));
+        const fileChunk: FileChunk = {
+          id: transfer.id,
+          index: i,
+          data: arrayBuffer,
+          isLast: i === chunks - 1
+        };
 
-      sentChunks++;
-      const progress = (sentChunks / chunks) * 100;
-      const elapsed = Date.now() - startTime;
-      const speed = (sentChunks * CHUNK_SIZE) / (elapsed / 1000);
+        const message = {
+          type: 'file-chunk',
+          chunk: fileChunk,
+          metadata: i === 0 ? { name: file.name, size: file.size, type: file.type } : undefined
+        };
+
+        peer.dataChannel.send(JSON.stringify(message));
+
+        sentChunks++;
+        const progress = (sentChunks / chunks) * 100;
+        const elapsed = Date.now() - startTime;
+        const speed = elapsed > 0 ? (sentChunks * CHUNK_SIZE) / (elapsed / 1000) : 0;
+
+        setTransfers(prev => prev.map(t => 
+          t.id === transfer.id ? { ...t, progress, speed } : t
+        ));
+
+        // Small delay to prevent overwhelming the data channel
+        await new Promise(resolve => setTimeout(resolve, 1));
+      }
 
       setTransfers(prev => prev.map(t => 
-        t.id === transfer.id ? { ...t, progress, speed, status: 'transferring' } : t
+        t.id === transfer.id ? { ...t, status: 'completed', progress: 100 } : t
+      ));
+    } catch (error) {
+      console.error('Error sending file:', error);
+      setTransfers(prev => prev.map(t => 
+        t.id === transfer.id ? { ...t, status: 'error' } : t
       ));
     }
-
-    setTransfers(prev => prev.map(t => 
-      t.id === transfer.id ? { ...t, status: 'completed' } : t
-    ));
-  }, [peers]);
+  }, []);
 
   return {
     peers: Array.from(peers.values()),
