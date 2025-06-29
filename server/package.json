@@ -1,0 +1,17 @@
+{
+  "name": "beam-signaling-server",
+  "version": "1.0.0",
+  "description": "WebRTC signaling server for Beam P2P file sharing",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "ws": "^8.14.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
