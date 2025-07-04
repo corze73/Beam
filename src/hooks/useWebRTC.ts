@@ -85,6 +85,17 @@ export const useWebRTC = () => {
     }
   }, [generateRoomId]);
 
+  const updatePeerConnection = useCallback((peerId: string, updates: Partial<Peer>) => {
+    setPeers(prev => {
+      const newPeers = new Map(prev);
+      const peer = newPeers.get(peerId);
+      if (peer) {
+        newPeers.set(peerId, { ...peer, ...updates });
+      }
+      return newPeers;
+    });
+  }, []);
+
   const createPeerConnection = useCallback((peerId: string) => {
     const pc = new RTCPeerConnection({
       iceServers: [
@@ -234,17 +245,6 @@ export const useWebRTC = () => {
     } catch (error) {
       console.error('Error parsing data channel message:', error);
     }
-  }, []);
-
-  const updatePeerConnection = useCallback((peerId: string, updates: Partial<Peer>) => {
-    setPeers(prev => {
-      const newPeers = new Map(prev);
-      const peer = newPeers.get(peerId);
-      if (peer) {
-        newPeers.set(peerId, { ...peer, ...updates });
-      }
-      return newPeers;
-    });
   }, []);
 
   const sendFile = useCallback(async (file: File, peerId: string) => {
