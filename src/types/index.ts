@@ -12,6 +12,7 @@ export interface Peer {
   id: string;
   connection: RTCPeerConnection;
   dataChannel?: RTCDataChannel;
+  connected?: boolean;
 }
 
 export interface FileChunk {

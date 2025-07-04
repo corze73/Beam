@@ -60,7 +60,7 @@ function App() {
               <RoomConnection
                 roomId={roomId}
                 isConnected={isConnected}
-                peerCount={peers.length}
+                peerCount={peers.filter(p => p.connected).length}
                 onConnect={connectToRoom}
               />
 
@@ -69,19 +69,19 @@ function App() {
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Share Files</h3>
                   <FileUpload
                     onFilesSelected={handleFilesSelected}
-                    disabled={!isConnected || peers.length === 0}
+                    disabled={!isConnected || peers.filter(p => p.connected).length === 0}
                   />
                   
-                  {selectedFiles.length > 0 && peers.length > 0 && (
+                  {selectedFiles.length > 0 && peers.filter(p => p.connected).length > 0 && (
                     <button
                       onClick={handleSendFiles}
                       className="w-full mt-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-6 rounded-lg font-semibold hover:shadow-lg transition-all duration-300"
                     >
-                      Send {selectedFiles.length} file{selectedFiles.length !== 1 ? 's' : ''} to {peers.length} device{peers.length !== 1 ? 's' : ''}
+                      Send {selectedFiles.length} file{selectedFiles.length !== 1 ? 's' : ''} to {peers.filter(p => p.connected).length} device{peers.filter(p => p.connected).length !== 1 ? 's' : ''}
                     </button>
                   )}
 
-                  {peers.length === 0 && (
+                  {peers.filter(p => p.connected).length === 0 && (
                     <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
                       <p className="text-amber-800 text-sm">
                         💡 Share your room ID or QR code with others to start transferring files

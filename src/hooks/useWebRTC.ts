@@ -105,6 +105,7 @@ export const useWebRTC = () => {
         const peer = newPeers.get(peerId);
         if (peer) {
           peer.dataChannel = dataChannel;
+          peer.connected = true;
           newPeers.set(peerId, peer);
         }
         return newPeers;
@@ -124,6 +125,7 @@ export const useWebRTC = () => {
           const peer = newPeers.get(peerId);
           if (peer) {
             peer.dataChannel = channel;
+            peer.connected = true;
             newPeers.set(peerId, peer);
           }
           return newPeers;
