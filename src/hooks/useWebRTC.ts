@@ -100,16 +100,7 @@ export const useWebRTC = () => {
 
     dataChannel.onopen = () => {
       console.log('Data channel opened with', peerId);
-      setPeers(prev => {
-        const newPeers = new Map(prev);
-        const peer = newPeers.get(peerId);
-        if (peer) {
-          peer.dataChannel = dataChannel;
-          peer.connected = true;
-          newPeers.set(peerId, peer);
-        }
-        return newPeers;
-      });
+      updatePeerConnection(peerId, { dataChannel, connected: true });
     };
 
     dataChannel.onmessage = (event) => {
@@ -120,16 +111,7 @@ export const useWebRTC = () => {
       const channel = event.channel;
       channel.onopen = () => {
         console.log('Incoming data channel opened with', peerId);
-        setPeers(prev => {
-          const newPeers = new Map(prev);
-          const peer = newPeers.get(peerId);
-          if (peer) {
-            peer.dataChannel = channel;
-            peer.connected = true;
-            newPeers.set(peerId, peer);
-          }
-          return newPeers;
-        });
+        updatePeerConnection(peerId, { dataChannel: channel, connected: true });
       };
       channel.onmessage = (event) => {
         handleDataChannelMessage(event.data, peerId);
@@ -150,7 +132,11 @@ export const useWebRTC = () => {
     pc.onconnectionstatechange = () => {
       console.log('Connection state with', peerId, ':', pc.connectionState);
       if (pc.connectionState === 'connected') {
-        console.log('Peer connected:', peerId);
+        console.log('WebRTC peer connected:', peerId);
+        updatePeerConnection(peerId, { connected: true });
+      } else if (pc.connectionState === 'connecting') {
+        console.log('WebRTC peer connecting:', peerId);
+        updatePeerConnection(peerId, { connected: false });
       } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
         handlePeerLeft(peerId);
       }
@@ -160,7 +146,7 @@ export const useWebRTC = () => {
     setPeers(prev => new Map(prev).set(peerId, peer));
     
     return peer;
-  }, [ws, roomId]);
+  }, [ws, roomId, updatePeerConnection]);
 
   const createOffer = useCallback(async (peerId: string) => {
     const peer = createPeerConnection(peerId);
@@ -248,6 +234,17 @@ export const useWebRTC = () => {
     } catch (error) {
       console.error('Error parsing data channel message:', error);
     }
+  }, []);
+
+  const updatePeerConnection = useCallback((peerId: string, updates: Partial<Peer>) => {
+    setPeers(prev => {
+      const newPeers = new Map(prev);
+      const peer = newPeers.get(peerId);
+      if (peer) {
+        newPeers.set(peerId, { ...peer, ...updates });
+      }
+      return newPeers;
+    });
   }, []);
 
   const sendFile = useCallback(async (file: File, peerId: string) => {
