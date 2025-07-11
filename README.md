@@ -1,41 +1,48 @@
-# Beam ⚡📤
-
-**Beam** is a peer-to-peer file sharing Progressive Web App (PWA), currently being developed using AI tools to accelerate both frontend and backend workflows.
-
----
-
-## 🔍 Overview
-
-Beam allows users to share files instantly between devices without relying on third-party storage. The project focuses on speed, privacy, and real-time interaction — all built using a modern PWA stack with AI-driven development support.
+# Beam ⚡📤  
+Beam is a peer-to-peer file sharing Progressive Web App (PWA) that enables users to transfer files instantly between devices — no third-party storage required. Built with modern web tools and AI-powered workflows, Beam is focused on speed, privacy, and minimalism.
 
 ---
 
-## 🚀 Tech Stack
-
-- **React + Expo (PWA-ready)**
-- **WebRTC / Supabase** (for real-time communication)
-- **Tailwind CSS**
-- **AI Tools:** ChatGPT, GitHub Copilot
+## 🌐 Live Site  
+🔗 [Visit the Beam App](https://astonishing-maamoul-d52779.netlify.app/) *(Work in Progress)*
 
 ---
 
-## 💡 Key Features (Planned)
-
-- Peer-to-peer file sharing
-- Device discovery and live connection interface
-- Drag-and-drop uploads with instant preview
-- Minimalist UI for fast transfers
+## 🧠 Project Purpose  
+Beam is being developed as part of my Full Stack Developer journey. It explores peer-to-peer communication in the browser using modern tech like WebRTC and Supabase. The project also demonstrates how AI tools like ChatGPT and GitHub Copilot can accelerate development in real-world apps.
 
 ---
 
-## 📈 Project Status
-
-🛠️ Beam is currently in early development. I'm building the connection logic and UI modules while exploring P2P data transfer capabilities — all using an AI-first workflow.
+## 💡 Features  
+📤 Peer-to-peer file transfers with no external storage  
+🔍 Device discovery and connection interface  
+🖱️ Drag-and-drop uploads with instant preview  
+🎯 Clean, minimalist UI optimized for performance  
+📱 Fully responsive and PWA-ready  
+🚀 AI-assisted development workflow  
 
 ---
 
-## 👤 About Me
+## 🗂️ Tech Stack  
+- React + Expo (PWA)  
+- WebRTC + Supabase  
+- Tailwind CSS  
+- GitHub + Netlify (version control & deployment)  
+- AI Tools: ChatGPT, GitHub Copilot  
 
-I'm Cory — currently taking the **Full Stack Engineer course via Codecademy**. I specialize in building projects powered by AI tools like ChatGPT and GitHub Copilot, with a focus on delivering clean UX, scalable architecture, and fast iteration.
+---
+
+## 📌 Roadmap  
+✅ Core layout and styling  
+⚙️ Implement peer discovery and WebRTC connections  
+📤 File transfer pipeline  
+🧪 Test across devices  
+📱 PWA install & offline support  
+🖼️ Animated branding & voice sync avatar (future feature)
+
+---
+
+## 👤 About Me  
+I’m Cory — a Full Stack Developer in training via Codecademy, and Assistant Manager at Edgware & Kingsbury FC. Beam is part of my broader mission to build useful web tools powered by AI and clean, scalable code.
 
 📫 [Connect on LinkedIn](https://www.linkedin.com/in/cory-charles-68851757)
